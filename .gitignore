@@ -1,0 +1,49 @@
+# Dati e output (troppo pesanti per il repo)
+data/
+/outputs/
+*.nii
+*.nii.gz
+*.npy
+*.pkl
+*.pth
+
+# Virtual environments
+venv*/
+brain_age311/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Test e coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Log
+*.log
+
+# Dataset CSV (escluso per cautela, è materiale della competizione)
+train.csv
+test.csv
+sampleSubmission.csv
+submission_*.csv
