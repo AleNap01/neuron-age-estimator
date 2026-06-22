@@ -1,0 +1,8 @@
+.git
+brain_age311/
+frontend/node_modules/
+frontend/dist/
+.pytest_cache/
+__pycache__/
+*.pyc
+notebooks/

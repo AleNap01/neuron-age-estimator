@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 # ──────────────────────────────────────────────
 # 0. PATH E CONFIG
 # ──────────────────────────────────────────────
-BASE = r"C:\Users\napol\Desktop\brain_age_enterprise"
+BASE = r"C:\Users\napol\Desktop\Archivio Generale\10--Work and projects\Neuron_Age_Estimator"
 OUT_DIR = os.path.join(BASE, "outputs")
 
 VOLUME_SIZE = 64
