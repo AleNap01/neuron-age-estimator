@@ -9,6 +9,36 @@ Progetto nato come esercitazione per il corso di Machine Learning
 (UniNa – Federico II, A.A. 2025/26), successivamente esteso ed industrializzato
 come progetto di portfolio.
 
+## V2 — Dashboard web e ricostruzione 3D
+
+Oltre alla pipeline di training, il progetto include un'applicazione web
+(`backend/` + `frontend/`) che serve i modelli addestrati:
+
+- **Backend FastAPI** (`backend/main.py`): predizione (`/predict`), ricostruzione
+  della superficie cerebrale in 3D via marching cubes + trimesh con
+  colorazione per zone anatomiche illustrative o overlay Grad-CAM (`/mesh`),
+  e referto PDF clinico (`/report`).
+- **Frontend React** (`frontend/`, Vite + Tailwind + Framer Motion +
+  react-three-fiber): landing page con sfondo a rete neurale 3D e dashboard
+  di analisi con il modello 3D ruotabile/sezionabile, brain-age gap,
+  intervallo di confidenza, storico e trend longitudinale.
+
+Avvio rapido:
+
+```bash
+# Backend (richiede i modelli in outputs/, vedi sotto)
+cd backend && uvicorn main:app --reload --port 8000
+
+# Frontend
+cd frontend && npm install && npm run dev
+```
+
+In alternativa, con Docker:
+
+```bash
+docker compose up --build
+```
+
 ## Risultati
 
 | Approccio                                   | Feature / Input        | MAE (anni) |
@@ -34,18 +64,22 @@ ragionevoli.
 ## Struttura del progetto
 
 ```
-brain_age_enterprise/
-├── src/brain_age/          # package principale
+.
+├── src/brain_age/          # package principale (training/feature engineering)
 │   ├── config.py           # path e costanti centralizzate
 │   ├── data/                # caricamento NIfTI, downsampling
 │   ├── features/            # feature engineering (statistiche su volumi 3D)
-│   ├── models/               # pipeline ML classico, architettura CNN 3D, Dataset
+│   ├── models/               # pipeline ML classico, CNN 3D, Grad-CAM, Dataset
 │   └── training/             # loop di training e valutazione
-├── scripts/                 # entry-point eseguibili (CLI)
-├── tests/                   # test automatici (pytest)
-├── notebooks/                # script esplorativi originali (EDA, prototipazione)
+├── backend/                 # API FastAPI (predizione, mesh 3D, referto PDF)
+├── frontend/                 # app React (landing + dashboard di analisi)
+├── scripts/                 # entry-point eseguibili per il training (CLI)
+├── tests/                   # test automatici (pytest, incl. test_api.py)
+├── notebooks/                # script di prototipazione/training (EDA, v2)
+├── .github/workflows/        # CI (test backend + build frontend)
 ├── data/                     # dataset MRI (non versionato, vedi sotto)
 ├── outputs/                  # feature, modelli e submission generati (non versionato)
+├── docker-compose.yml
 └── pyproject.toml
 ```
 
@@ -142,8 +176,10 @@ volumi completamente vuoti), forward pass della CNN, e il Dataset PyTorch.
 - CNN 3D più profonda, addestrata su GPU dedicata (es. Kaggle Notebooks con
   GPU T4) e a risoluzione piena (128³)
 - Feature da region-of-interest neuroanatomiche tramite atlanti standard
-- API REST (FastAPI) + interfaccia web per servire il modello
-- Containerizzazione e deploy
+  (oggi la colorazione 3D per zona è solo geometrica/illustrativa, non
+  basata su un atlante reale)
+- Confronto longitudinale per paziente reale (oggi lo storico è per
+  browser/localStorage, non per identità del paziente)
 
 ## Licenza
 
