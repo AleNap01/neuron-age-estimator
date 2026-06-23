@@ -1,6 +1,9 @@
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import gsap from "gsap";
 import NeuralBrainBackground from "./NeuralBrainBackground.jsx";
 import { cn } from "./lib/utils.js";
+import { useLenis } from "./useLenis.js";
 
 /**
  * NeuroAgeLanding — V3, ricostruita in stile "21st.dev": Tailwind CSS +
@@ -12,26 +15,36 @@ import { cn } from "./lib/utils.js";
  * manipolare in primo piano.
  */
 
-const STACK = [
-  "PYTORCH", "FASTAPI", "REACT THREE FIBER", "SCIKIT-LEARN",
-  "NIBABEL", "TRIMESH", "THREE.JS", "FRAMER MOTION",
-];
-
 const FEATURES = [
+  {
+    id: "3d",
+    color: "text-brand-orange",
+    glow: "from-brand-orange/25",
+    tag: "MODELLO 3D",
+    title: "Ricostruzione ruotabile",
+    text: "Il volume MRI viene ricostruito in una mesh 3D che puoi ruotare, zoomare e sezionare per esplorare le strutture interne del cervello.",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="8.2" />
+        <ellipse cx="12" cy="12" rx="8.2" ry="3.4" />
+      </>
+    ),
+    span: "sm:col-span-2",
+  },
   {
     id: "ml",
     color: "text-brand-blue",
     glow: "from-brand-blue/25",
-    eyebrow: "01 · ML CLASSICO",
+    tag: "ML CLASSICO",
     title: "Feature + ensemble",
-    text: "Misure morfometriche del cervello date in pasto a un ensemble di SVR e Random Forest.",
+    text: "Misure morfometriche date in pasto a un ensemble di SVR e Random Forest.",
     icon: <path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6" />,
   },
   {
     id: "cnn",
     color: "text-brand-green",
     glow: "from-brand-green/25",
-    eyebrow: "02 · CNN 3D",
+    tag: "CNN 3D",
     title: "Rete volumetrica",
     text: "Una rete neurale 3D addestrata direttamente sui volumi cerebrali, end-to-end.",
     icon: (
@@ -44,24 +57,10 @@ const FEATURES = [
     ),
   },
   {
-    id: "3d",
-    color: "text-brand-orange",
-    glow: "from-brand-orange/25",
-    eyebrow: "03 · MODELLO 3D",
-    title: "Ricostruzione ruotabile",
-    text: "Il volume MRI viene ricostruito in una mesh 3D: ruotala, zoomala, sezionala.",
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="8.2" />
-        <ellipse cx="12" cy="12" rx="8.2" ry="3.4" />
-      </>
-    ),
-  },
-  {
     id: "pdf",
     color: "text-emerald-600",
     glow: "from-emerald-500/25",
-    eyebrow: "04 · REFERTO",
+    tag: "REFERTO",
     title: "Report scaricabile",
     text: "Un documento con età stimata, brain-age gap e mappe, pronto da condividere.",
     icon: (
@@ -70,6 +69,7 @@ const FEATURES = [
         <path d="M14 3.5V8h4" />
       </>
     ),
+    span: "sm:col-span-2",
   },
 ];
 
@@ -123,7 +123,35 @@ function GlowIcon({ children, colorClass }) {
 }
 
 export default function NeuroAgeLanding({ onUploadClick }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const heroRef = useRef(null);
   const handleUploadClick = () => onUploadClick?.();
+  const closeMenu = () => setMenuOpen(false);
+
+  useLenis();
+
+  useEffect(() => {
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduced: "(prefers-reduced-motion: reduce)", full: "(prefers-reduced-motion: no-preference)" },
+      (ctx) => {
+        const els = heroRef.current.querySelectorAll("[data-hero-item]");
+        if (ctx.conditions.reduced) {
+          gsap.set(els, { opacity: 1, y: 0 });
+          return;
+        }
+        gsap.set(els, { opacity: 0, y: 18 });
+        gsap.to(els, {
+          opacity: 1,
+          y: 0,
+          duration: 0.7,
+          ease: "expo.out",
+          stagger: 0.09,
+        });
+      }
+    );
+    return () => mm.revert();
+  }, []);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-mist text-ink font-sans selection:bg-brand-blue/20">
@@ -163,13 +191,42 @@ export default function NeuroAgeLanding({ onUploadClick }) {
             <a href="#come-funziona" className="text-sm font-medium text-muted hover:text-ink transition-colors">Come funziona</a>
           </nav>
 
-          <button
-            onClick={handleUploadClick}
-            className="cursor-pointer rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-[0.98]"
-          >
-            Apri la dashboard
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleUploadClick}
+              className="cursor-pointer rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-[0.98]"
+            >
+              Apri la dashboard
+            </button>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label={menuOpen ? "Chiudi il menu" : "Apri il menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav-panel"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-ink transition-colors hover:bg-black/5 sm:hidden"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
+            </button>
+          </div>
         </div>
+
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.nav
+              id="mobile-nav-panel"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto mt-2 flex max-w-5xl flex-col gap-1 rounded-2xl border border-white/60 bg-white/90 p-3 shadow-[0_8px_30px_rgba(22,34,46,.08)] backdrop-blur-xl sm:hidden"
+            >
+              <a href="#tecnologia" onClick={closeMenu} className="rounded-xl px-3 py-2.5 text-sm font-medium text-muted hover:bg-black/5 hover:text-ink transition-colors">Tecnologia</a>
+              <a href="#come-funziona" onClick={closeMenu} className="rounded-xl px-3 py-2.5 text-sm font-medium text-muted hover:bg-black/5 hover:text-ink transition-colors">Come funziona</a>
+            </motion.nav>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* ===== HERO ===== */}
@@ -179,32 +236,20 @@ export default function NeuroAgeLanding({ onUploadClick }) {
         {/* Scrim di leggibilità: sfuma la rete verso il colore di pagina ai bordi */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_38%,transparent_0%,rgba(246,250,252,.55)_72%,#f6fafc_100%)]" />
 
-        <motion.div
-          className="relative z-10 mx-auto max-w-3xl px-6 text-center"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-brand-green/20 bg-mint px-3.5 py-1.5 font-mono text-xs font-medium text-brand-green">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-green" />
-            AI · Neuroimaging · Cervello digitale
-          </div>
-
-          <h1 className="text-[clamp(2.4rem,6vw,3.9rem)] font-extrabold leading-[1.02] tracking-tight">
+        <div ref={heroRef} className="relative z-10 mx-auto max-w-3xl px-6 text-center">
+          <h1 data-hero-item className="text-[clamp(2.4rem,6vw,3.9rem)] font-extrabold leading-[1.02] tracking-tight text-balance">
             Quanti anni ha
             <br />
-            <span className="bg-gradient-to-r from-brand-blue to-brand-green bg-clip-text text-transparent">
-              davvero il tuo cervello?
-            </span>
+            <span className="text-brand-blue">davvero il tuo cervello?</span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-lg text-balance text-[clamp(0.95rem,1.6vw,1.125rem)] leading-relaxed text-muted">
+          <p data-hero-item className="mx-auto mt-6 max-w-lg text-balance text-[clamp(0.95rem,1.6vw,1.125rem)] leading-relaxed text-muted">
             NeuroAge·MRI stima l'età biologica del cervello da una risonanza magnetica e ne
             ricostruisce un <strong className="text-ink">modello 3D ruotabile e sezionabile</strong>,
             combinando machine learning classico e reti neurali 3D.
           </p>
 
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3.5">
+          <div data-hero-item className="mt-9 flex flex-wrap items-center justify-center gap-3.5">
             <button
               onClick={handleUploadClick}
               className="group inline-flex cursor-pointer items-center gap-2.5 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-blue-dark px-7 py-4 text-[15px] font-semibold text-white shadow-[0_10px_30px_rgba(29,114,194,.32)] transition-transform hover:scale-[1.03] active:scale-[0.98]"
@@ -224,55 +269,32 @@ export default function NeuroAgeLanding({ onUploadClick }) {
             </a>
           </div>
 
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-7">
-            {[
-              ["± 4.06", "anni MAE", "errore medio CNN 3D"],
-              ["2.3k", "", "volumi di addestramento"],
-              ["100%", "CPU", "nessuna GPU richiesta"],
-            ].map(([big, suffix, caption], i) => (
-              <div key={i} className="flex items-center gap-7">
-                {i > 0 && <div className="hidden h-9 w-px bg-black/10 sm:block" />}
-                <div>
-                  <div className="font-mono text-[22px] font-semibold">
-                    {big} {suffix && <span className="text-[13px] font-medium text-faint">{suffix}</span>}
-                  </div>
-                  <div className="mt-0.5 text-xs text-faint">{caption}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </section>
-
-      {/* ===== MARQUEE STACK ===== */}
-      <div className="relative border-y border-black/5 bg-white/60 py-4 backdrop-blur">
-        <div className="flex overflow-hidden">
-          <div className="flex shrink-0 animate-marquee items-center gap-12 pr-12">
-            {[...STACK, ...STACK].map((item, i) => (
-              <span key={i} className="font-mono text-xs font-medium tracking-wide text-faint whitespace-nowrap">
-                {item}
-              </span>
-            ))}
-          </div>
+          <p data-hero-item className="mx-auto mt-10 max-w-xl text-balance text-[13px] leading-relaxed text-faint">
+            Addestrato su <span className="font-mono text-ink">2.3k</span> volumi cerebrali, con un errore medio
+            di <span className="font-mono text-ink">± 4.06 anni</span> (CNN 3D) e zero GPU richieste in fase di inferenza.
+          </p>
         </div>
-      </div>
+      </section>
 
       {/* ===== TECNOLOGIA (bento) ===== */}
       <section id="tecnologia" className="mx-auto max-w-6xl px-6 py-24">
         <Reveal className="mb-12 text-center">
-          <div className="mb-2.5 font-mono text-xs font-medium uppercase tracking-wider text-brand-green">Tecnologia</div>
-          <h2 className="text-[clamp(1.6rem,3.4vw,2.1rem)] font-bold tracking-tight">Quattro pezzi, una pipeline</h2>
+          <h2 className="text-[clamp(1.6rem,3.4vw,2.1rem)] font-bold tracking-tight">
+            La tecnologia dietro la stima
+          </h2>
         </Reveal>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
-            <Reveal key={f.id} delay={i * 0.08}>
+            <Reveal key={f.id} className={f.span} delay={i * 0.08}>
               <div className="group relative h-full overflow-hidden rounded-2xl border border-black/5 bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(22,34,46,.10)]">
                 <div className={cn("absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br to-transparent opacity-0 blur-2xl transition-opacity group-hover:opacity-100", f.glow)} />
-                <div className={cn("mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-black/[0.03]", f.color)}>
-                  <GlowIcon colorClass={f.color}>{f.icon}</GlowIcon>
+                <div className="mb-4 flex items-center gap-3">
+                  <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/[0.03]", f.color)}>
+                    <GlowIcon colorClass={f.color}>{f.icon}</GlowIcon>
+                  </div>
+                  <span className={cn("font-mono text-[11px] font-medium tracking-wide", f.color)}>{f.tag}</span>
                 </div>
-                <div className={cn("mb-2 font-mono text-[11px] font-medium tracking-wide", f.color)}>{f.eyebrow}</div>
                 <div className="mb-1.5 text-[15px] font-semibold">{f.title}</div>
                 <div className="text-[13px] leading-relaxed text-muted">{f.text}</div>
               </div>
@@ -284,7 +306,6 @@ export default function NeuroAgeLanding({ onUploadClick }) {
       {/* ===== COME FUNZIONA ===== */}
       <section id="come-funziona" className="mx-auto max-w-6xl px-6 py-12">
         <Reveal className="mb-14 text-center">
-          <div className="mb-2.5 font-mono text-xs font-medium uppercase tracking-wider text-brand-blue">Come funziona</div>
           <h2 className="text-[clamp(1.6rem,3.4vw,2.1rem)] font-bold tracking-tight">Dalla risonanza al modello 3D in 3 passi</h2>
         </Reveal>
 
@@ -338,8 +359,8 @@ export default function NeuroAgeLanding({ onUploadClick }) {
       {/* ===== FOOTER ===== */}
       <footer className="border-t border-black/5">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-7">
-          <div className="flex items-center gap-2.5 text-[13px] text-faint">
-            <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-brand-blue to-brand-green" />
+          <div className="flex items-center gap-2.5 text-[13px] text-muted">
+            <div className="h-6 w-6 shrink-0 rounded-[7px] bg-gradient-to-br from-brand-blue to-brand-green" />
             NeuroAge·MRI — strumento di supporto alla ricerca, non destinato all'uso diagnostico autonomo.
           </div>
           <div className="font-mono text-xs text-faint/80">© 2026 · v3.0</div>
