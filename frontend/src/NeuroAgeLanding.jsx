@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import NeuralBrainBackground from "./NeuralBrainBackground.jsx";
 import { cn } from "./lib/utils.js";
 import { useLenis } from "./useLenis.js";
+
+gsap.registerPlugin(ScrollTrigger);
 
 /**
  * NeuroAgeLanding — V3, ricostruita in stile "21st.dev": Tailwind CSS +
@@ -94,24 +97,85 @@ const STEPS = [
   },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 22 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
-};
-
+// Reveal — entrata marcata su scroll (blur + scale + risalita), non il fade-up
+// uniforme da "AI slop": ogni elemento parte visibilmente fuori fuoco e si
+// "messa a fuoco" mentre arriva, coerente con un prodotto che ricostruisce
+// nitidezza da un volume MRI.
 function Reveal({ children, className, delay = 0 }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduced: "(prefers-reduced-motion: reduce)", full: "(prefers-reduced-motion: no-preference)" },
+      (ctx) => {
+        if (ctx.conditions.reduced) {
+          gsap.set(el, { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" });
+          return;
+        }
+        gsap.set(el, { opacity: 0, y: 56, scale: 0.92, filter: "blur(10px)" });
+        const tween = gsap.to(el, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          filter: "blur(0px)",
+          duration: 0.9,
+          delay,
+          ease: "expo.out",
+          scrollTrigger: {
+            trigger: el,
+            start: "top 85%",
+            toggleActions: "play none none reverse",
+          },
+        });
+        return () => tween.scrollTrigger?.kill();
+      }
+    );
+    return () => mm.revert();
+  }, [delay]);
+
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-60px" }}
-      variants={fadeUp}
-      transition={{ delay }}
-    >
+    <div ref={ref} className={className}>
       {children}
-    </motion.div>
+    </div>
   );
+}
+
+// Tilt — inclinazione 3D che segue il mouse, per le card della tecnologia.
+function useTilt() {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const onMove = (e) => {
+      const rect = el.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width - 0.5;
+      const py = (e.clientY - rect.top) / rect.height - 0.5;
+      gsap.to(el, {
+        rotateX: py * -10,
+        rotateY: px * 12,
+        scale: 1.03,
+        duration: 0.4,
+        ease: "expo.out",
+        transformPerspective: 700,
+      });
+    };
+    const onLeave = () => {
+      gsap.to(el, { rotateX: 0, rotateY: 0, scale: 1, duration: 0.5, ease: "expo.out" });
+    };
+
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  return ref;
 }
 
 function GlowIcon({ children, colorClass }) {
@@ -122,14 +186,39 @@ function GlowIcon({ children, colorClass }) {
   );
 }
 
+function FeatureCard({ f }) {
+  const tiltRef = useTilt();
+  return (
+    <div
+      ref={tiltRef}
+      className="group relative h-full overflow-hidden rounded-2xl border border-black/5 bg-white p-6 transition-shadow will-change-transform hover:shadow-[0_18px_40px_rgba(22,34,46,.10)]"
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <div className={cn("absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br to-transparent opacity-0 blur-2xl transition-opacity group-hover:opacity-100", f.glow)} />
+      <div className="mb-4 flex items-center gap-3">
+        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/[0.03]", f.color)}>
+          <GlowIcon colorClass={f.color}>{f.icon}</GlowIcon>
+        </div>
+        <span className={cn("font-mono text-[11px] font-medium tracking-wide", f.color)}>{f.tag}</span>
+      </div>
+      <div className="mb-1.5 text-[15px] font-semibold">{f.title}</div>
+      <div className="text-[13px] leading-relaxed text-muted">{f.text}</div>
+    </div>
+  );
+}
+
 export default function NeuroAgeLanding({ onUploadClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const heroRef = useRef(null);
+  const heroSectionRef = useRef(null);
+  const brainBgRef = useRef(null);
+  const progressBarRef = useRef(null);
   const handleUploadClick = () => onUploadClick?.();
   const closeMenu = () => setMenuOpen(false);
 
   useLenis();
 
+  // 1 · Hero load — timeline GSAP unica: headline → paragrafo → CTA → stat line.
   useEffect(() => {
     const mm = gsap.matchMedia();
     mm.add(
@@ -148,6 +237,49 @@ export default function NeuroAgeLanding({ onUploadClick }) {
           ease: "expo.out",
           stagger: 0.09,
         });
+      }
+    );
+    return () => mm.revert();
+  }, []);
+
+  // 2 · Scroll: parallax sul cervello digitale mentre la hero esce dal viewport.
+  // 3 · Sticky progress — barra sottile nella navbar legata allo scroll dell'intera pagina.
+  useEffect(() => {
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduced: "(prefers-reduced-motion: reduce)", full: "(prefers-reduced-motion: no-preference)" },
+      (ctx) => {
+        if (ctx.conditions.reduced) return;
+
+        const triggers = [];
+
+        if (brainBgRef.current && heroSectionRef.current) {
+          gsap.set(brainBgRef.current, { willChange: "transform" });
+          triggers.push(
+            ScrollTrigger.create({
+              trigger: heroSectionRef.current,
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+              animation: gsap.to(brainBgRef.current, { yPercent: -32, scale: 1.18, ease: "none" }),
+            })
+          );
+        }
+
+        if (progressBarRef.current) {
+          triggers.push(
+            ScrollTrigger.create({
+              trigger: document.documentElement,
+              start: "top top",
+              end: "bottom bottom",
+              onUpdate: (self) => {
+                gsap.set(progressBarRef.current, { scaleX: self.progress });
+              },
+            })
+          );
+        }
+
+        return () => triggers.forEach((t) => t.kill());
       }
     );
     return () => mm.revert();
@@ -172,7 +304,14 @@ export default function NeuroAgeLanding({ onUploadClick }) {
 
       {/* ===== NAVBAR (floating, glass) ===== */}
       <header className="fixed inset-x-4 top-4 z-50 sm:inset-x-6">
-        <div className="mx-auto flex max-w-5xl items-center justify-between rounded-2xl border border-white/60 bg-white/70 px-5 py-3 shadow-[0_8px_30px_rgba(22,34,46,.08)] backdrop-blur-xl">
+        <div className="relative mx-auto flex max-w-5xl items-center justify-between rounded-2xl border border-white/60 bg-white/70 px-5 py-3 shadow-[0_8px_30px_rgba(22,34,46,.08)] backdrop-blur-xl">
+          <div className="absolute inset-x-5 bottom-0 h-px overflow-hidden rounded-full bg-black/5" aria-hidden="true">
+            <div
+              ref={progressBarRef}
+              className="h-full w-full origin-left bg-gradient-to-r from-brand-blue to-brand-green"
+              style={{ transform: "scaleX(0)" }}
+            />
+          </div>
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand-blue to-brand-green shadow-[0_4px_12px_rgba(29,114,194,.3)]">
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -230,9 +369,11 @@ export default function NeuroAgeLanding({ onUploadClick }) {
       </header>
 
       {/* ===== HERO ===== */}
-      <section className="relative overflow-hidden pt-40 pb-28 sm:pt-48 lg:pb-36">
-        {/* Cervello digitale: rete neurale di sfondo, dietro al testo */}
-        <NeuralBrainBackground className="absolute inset-0 -z-0 opacity-90" />
+      <section ref={heroSectionRef} className="relative overflow-hidden pt-40 pb-28 sm:pt-48 lg:pb-36">
+        {/* Cervello digitale: rete neurale di sfondo, dietro al testo, con leggero parallax allo scroll */}
+        <div ref={brainBgRef} className="absolute inset-0 -z-0">
+          <NeuralBrainBackground className="absolute inset-0 opacity-90" />
+        </div>
         {/* Scrim di leggibilità: sfuma la rete verso il colore di pagina ai bordi */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_38%,transparent_0%,rgba(246,250,252,.55)_72%,#f6fafc_100%)]" />
 
@@ -287,17 +428,7 @@ export default function NeuroAgeLanding({ onUploadClick }) {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
             <Reveal key={f.id} className={f.span} delay={i * 0.08}>
-              <div className="group relative h-full overflow-hidden rounded-2xl border border-black/5 bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(22,34,46,.10)]">
-                <div className={cn("absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br to-transparent opacity-0 blur-2xl transition-opacity group-hover:opacity-100", f.glow)} />
-                <div className="mb-4 flex items-center gap-3">
-                  <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/[0.03]", f.color)}>
-                    <GlowIcon colorClass={f.color}>{f.icon}</GlowIcon>
-                  </div>
-                  <span className={cn("font-mono text-[11px] font-medium tracking-wide", f.color)}>{f.tag}</span>
-                </div>
-                <div className="mb-1.5 text-[15px] font-semibold">{f.title}</div>
-                <div className="text-[13px] leading-relaxed text-muted">{f.text}</div>
-              </div>
+              <FeatureCard f={f} />
             </Reveal>
           ))}
         </div>
